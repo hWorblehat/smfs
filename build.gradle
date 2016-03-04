@@ -1,6 +1,9 @@
 apply plugin: 'cpp'
+apply plugin: 'google-test'
 
 String osInclude = '/usr/inlude'
+String[] gTestLinkerArgs = ['-pthread', '-v']
+String[] gTestCompilerArgs = gTestLinkerArgs + ['-isystem', file("googletest/include").path]
 
 String qx(String... command) {
 	def stdout = new ByteArrayOutputStream()
@@ -28,16 +31,43 @@ model {
 	components {
 		main(NativeExecutableSpec) {
 			def requiredPackages = ['fuse']
+			def cFlags = pkgCFlags(requiredPackages)
+			def linkLibs = pkgLibs(requiredPackages)
 			
 			binaries.withType(NativeBinarySpec) {
 				if(toolChain in Gcc) {
-					def cFlags = pkgCFlags(requiredPackages)
-					cppCompiler.args(cFlags)
-					cCompiler.args(cFlags)
-					linker.args(pkgLibs(requiredPackages))
+					cppCompiler.args cFlags
+					cCompiler.args   cFlags
+					linker.args      linkLibs
 				}
 			}
 			
+		}
+		
+		googleTest(NativeLibrarySpec) {
+			sources {
+				cpp {
+					source {
+						srcDir "googletest/src"
+						include "gtest-all.cc"
+					}
+				}
+			}
+			binaries.withType(NativeBinarySpec) {
+				if(toolChain in Gcc) {
+					cppCompiler.args gTestCompilerArgs
+					cppCompiler.args('-I', file('googletest').path)
+					linker.args gTestLinkerArgs
+				}
+			}
+		}
+	}
+	
+	binaries{
+		withType(GoogleTestTestSuiteBinarySpec) {
+			lib library: 'googleTest', linkage: 'static'
+			cppCompiler.args gTestCompilerArgs
+			linker.args gTestLinkerArgs
 		}
 	}
 }
