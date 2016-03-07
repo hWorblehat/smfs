@@ -1,0 +1,2 @@
+include ':googletest'
+project(':googletest').buildFileName = '../gradle/googletest.gradle'

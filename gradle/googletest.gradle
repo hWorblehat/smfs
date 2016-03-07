@@ -1,0 +1,25 @@
+apply plugin: 'cpp'
+
+apply from: new File(rootDir, 'gradle/gtest_conf.gradle')
+
+model {
+	components {
+		main(NativeLibrarySpec) {
+			sources {
+				cpp {
+					source {
+						srcDir "src"
+						include "gtest-all.cc"
+					}
+				}
+			}
+			binaries.withType(NativeBinarySpec) {
+				if(toolChain in Gcc) {
+					cppCompiler.args(*gTestCompilerArgs)
+					cppCompiler.args('-I', projectDir.path)
+					linker.args(*gTestLinkerArgs)
+				}
+			}
+		}
+	}
+}

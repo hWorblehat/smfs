@@ -1,0 +1,14 @@
+ext {
+	gTestLinkerArgs = ['-pthread', '-v']
+	gTestCompilerArgs = gTestLinkerArgs + ['-isystem', new File(rootDir, "googletest/include").path]
+}
+
+model {
+	binaries {
+		withType(GoogleTestTestSuiteBinarySpec) {
+			lib project: ':googletest', library: 'main', linkage: 'static'
+			cppCompiler.args(*gTestCompilerArgs)
+			linker.args(*gTestLinkerArgs)
+		}
+	}
+}
