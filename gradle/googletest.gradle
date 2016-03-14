@@ -2,21 +2,25 @@ apply plugin: 'cpp'
 
 apply from: new File(rootDir, 'gradle/gtest_conf.gradle')
 
+File gtestDir = projectDir
+File gmockDir = new File(rootDir, 'googlemock')
+
 model {
 	components {
 		main(NativeLibrarySpec) {
 			sources {
 				cpp {
 					source {
-						srcDir "src"
-						include "gtest-all.cc"
+						srcDirs new File(gtestDir, 'src'), new File(gmockDir, 'src')
+						include 'gtest-all.cc', 'gmock-all.cc'
 					}
 				}
 			}
 			binaries.withType(NativeBinarySpec) {
 				if(toolChain in Gcc) {
 					cppCompiler.args(*gTestCompilerArgs)
-					cppCompiler.args('-I', projectDir.path)
+					cppCompiler.args('-I', gtestDir.path)
+					cppCompiler.args('-I', gmockDir.path)
 					linker.args(*gTestLinkerArgs)
 				}
 			}
