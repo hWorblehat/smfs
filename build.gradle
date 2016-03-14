@@ -42,4 +42,12 @@ model {
 			
 		}
 	}
+	
+	binaries {
+		withType(NativeBinarySpec) {
+			if(toolChain in Gcc) {
+				cppCompiler.args '-std=c++14'
+			}
+		}
+	}
 }

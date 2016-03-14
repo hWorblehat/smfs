@@ -12,53 +12,53 @@
 #include <memory>
 #include <utility>
 
+#include "smfs/details/ptr.h"
+
+namespace smfs {
+
 /**
  * A generalised type for any kind of smart pointer.
  */
 template<typename T> class any_ptr {
-	void* wrapped;
-
-	any_ptr() = delete;
-
-	any_ptr(void* toWrap) : wrapped(toWrap) {}
+details::any_ptr<T>* delegate;
 
 public:
 
-	static any_ptr<T> wrap(std::shared_ptr<T>& toWrap) {
-		return any_ptr(new std::shared_ptr<T>(toWrap));
-	}
+	any_ptr(std::shared_ptr<T>& toWrap)
+		: delegate(new details::any_smart_ptr<T>(toWrap)) {}
 
-	static any_ptr<T> wrap(std::shared_ptr<T>&& toWrap) {
-		return any_ptr(new std::shared_ptr<T>(std::forward(toWrap)));
-	}
+	any_ptr(std::shared_ptr<T>&& toWrap)
+		: delegate(new details::any_smart_ptr<T>(std::forward(toWrap))) {}
 
 
 	/**
 	 * Deletes the delegate pointer.
 	 */
 	~any_ptr() {
-		delete(wrapped);
+		delete(delegate);
+	}
+
+	T* operator->() const {
+		return delegate->get();
 	}
 
 	/**
 	 * Dereferences this pointer.
 	 * @return The object this pointer points to.
 	 */
-	typename std::add_lvalue_reference<T>::type operator*() const {
-		return (typename std::add_lvalue_reference<T>::type) **wrapped;
-	}
-
-	T* operator->() const {
-		return (T*) *wrapped;
+	T operator*() const {
+		return *(delegate->get());
 	}
 
 	/**
 	 * Checks if this pointer owns an object.
 	 * @return @code{true} if this pointer owns a non-null object.
 	 */
-	bool operator bool() const {
-		return (bool) *wrapped;
+	operator bool() const {
+		return delegate && (bool) delegate->get();
 	}
 };
+
+}
 
 #endif /* SMFS_PTR_H_ */
