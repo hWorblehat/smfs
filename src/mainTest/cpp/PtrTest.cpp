@@ -34,3 +34,7 @@ TEST(any_ptr, deleteFromShared) {
 	EXPECT_EQ(*sp, string("hello"));
 	EXPECT_EQ(sp.use_count(), 1);
 }
+
+TEST(any_ptr, fromSharedUnique) {
+
+}
