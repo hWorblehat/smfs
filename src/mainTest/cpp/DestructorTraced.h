@@ -11,8 +11,13 @@
 #include "gmock/gmock.h"
 
 class DestructorTraced {
+public:
 
+	MOCK_METHOD0(Die, void());
 
+	virtual ~DestructorTraced() {
+		Die();
+	}
 
 };
 

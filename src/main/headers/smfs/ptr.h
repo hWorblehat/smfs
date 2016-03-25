@@ -28,7 +28,7 @@ public:
 		: delegate(new details::any_smart_ptr<T>(toWrap)) {}
 
 	any_ptr(std::shared_ptr<T>&& toWrap)
-		: delegate(new details::any_smart_ptr<T>(std::forward(toWrap))) {}
+		: delegate(new details::any_smart_ptr<T>(std::forward<std::shared_ptr<T>>(toWrap))) {}
 
 
 	/**

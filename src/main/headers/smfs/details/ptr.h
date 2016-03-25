@@ -35,7 +35,7 @@ template<typename T> class any_smart_ptr : any_ptr<T> {
 	friend class smfs::any_ptr<T>;
 
 	any_smart_ptr(std::shared_ptr<T>& delegate) : delegate(delegate) {}
-	any_smart_ptr(std::shared_ptr<T>&& delegate) : delegate(std::forward(delegate)) {}
+	any_smart_ptr(std::shared_ptr<T>&& delegate) : delegate(std::forward<std::shared_ptr<T>>(delegate)) {}
 
 protected:
 	T* get() const override {
