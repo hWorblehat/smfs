@@ -9,46 +9,50 @@
 #define SMFS_CONTAINER_H_
 
 #include <memory>
+#include <type_traits>
+#include "smfs/details/container.h"
 
 namespace smfs {
 
-template<typename M>
-class collection {
+	template<typename M>
+	class collection {
 
-public:
-	typedef M value_type;
-	typedef size_t size_type;
+	public:
+		typedef M value_type;
+		typedef size_t size_type;
 
-	virtual size_type size() const = 0;
-	virtual bool empty() const = 0;
-	virtual size_type max_size() const = 0;
+		virtual size_type size() const = 0;
+		virtual bool empty() const = 0;
+		virtual size_type max_size() const = 0;
 
-	virtual ~collection(){}
-};
+		virtual value_type & at(size_type index) = 0;
+		virtual value_type const & at(size_type index) const = 0;
 
-template<typename C, typename M>
-class collection_wrapper : public collection<M> {
-	std::shared_ptr<C> const delegate;
+		value_type & operator[](size_type index) {
+			return at(index);
+		}
 
-	using typename collection<M>::size_type;
+		value_type const & operator[](size_type index) const {
+			return std::forward<value_type>(at(index));
+		}
 
-public:
+		virtual ~collection(){}
+	};
 
-	collection_wrapper(std::shared_ptr<C> const &delegate) : delegate(delegate) {
+	template<typename M, typename C, typename = std::enable_if_t<details::has_at<C,M>::value>>
+	collection<M>* wrap_collection(std::shared_ptr<C> &toWrap) {
+		return new smfs::details::contiguous_wrapper<C,M>(toWrap);
 	}
 
-	size_type size() const override  {
-		return delegate->size();
+	template<typename M, typename C>
+	collection<M>* wrap_collection(std::shared_ptr<C> &&toWrap) {
+		return new smfs::details::collection_wrapper<C,M>(std::forward<std::shared_ptr<C>>(toWrap));
 	}
 
-	bool empty() const override {
-		return delegate->empty();
+	template<typename M, typename C>
+	collection<M>* wrap_collection(C* toWrap) {
+		return wrap_collection<M,C>(std::shared_ptr<C>(toWrap));
 	}
-
-	size_type max_size() const override {
-		return delegate->max_size();
-	}
-};
 
 }
 
