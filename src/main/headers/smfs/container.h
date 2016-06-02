@@ -39,14 +39,20 @@ namespace smfs {
 		virtual ~collection(){}
 	};
 
-	template<typename M, typename C, typename = std::enable_if_t<details::has_at<C,M>::value>>
+	template<
+		typename M, typename C,
+		typename std::enable_if_t<details::has_at<C,M>::value>
+	>
 	collection<M>* wrap_collection(std::shared_ptr<C> &toWrap) {
 		return new smfs::details::contiguous_wrapper<C,M>(toWrap);
 	}
 
-	template<typename M, typename C>
+	template<
+		typename M, typename C,
+		typename std::enable_if_t<!details::has_at<C,M>::value>
+	>
 	collection<M>* wrap_collection(std::shared_ptr<C> &&toWrap) {
-		return new smfs::details::collection_wrapper<C,M>(std::forward<std::shared_ptr<C>>(toWrap));
+		return new smfs::details::linked_wrapper<C,M>(std::forward<std::shared_ptr<C>>(toWrap));
 	}
 
 	template<typename M, typename C>

@@ -84,10 +84,19 @@ public:
 	}
 };
 
-template<typename C, typename M> auto has_at(C* container)
-		-> decltype(std::declval<C>().at(0)!=std::declval<M>(), std::true_type) {}
+template<typename C, typename M>
+class has_at {
+	template<typename C, typename M> static auto test(C container, M member)
+			-> decltype(container.at(0)!=member, std::true_type) {}
 
-template<typename C, typename M> std::false_type has_at(void* container) {}
+	template<typename C, typename M> static std::false_type test(...) {}
+
+public:
+
+	static bool const value = test(0,0);
+};
+
+
 
 } //namespace details
 } // namesoace smfs
