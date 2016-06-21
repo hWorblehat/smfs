@@ -43,20 +43,22 @@ public:
 };
 
 template<typename C, typename M>
-class contiguous_wrapper : collection_wrapper_base<C,M> {
+class contiguous_wrapper : public collection_wrapper_base<C,M> {
 	using typename collection<M>::size_type;
 	using typename collection<M>::value_type;
+	//using collection_wrapper_base<C,M>::delegate;
 
 public:
 
-	contiguous_wrapper(std::shared_ptr<C> const delegate) : collection_wrapper_base(delegate) {}
+	using collection_wrapper_base<C,M>::collection_wrapper_base;
+	//contiguous_wrapper(std::shared_ptr<C> const &delegate) : collection_wrapper_base(delegate) {}
 
 	value_type & at(size_type index) override {
-		return delegate->at(index);
+		return this->delegate->at(index);
 	}
 
 	value_type const & at(size_type index) const override {
-		return std::forward<value_type>(delegate->at(index));
+		return std::forward<value_type>(this->delegate->at(index));
 	}
 };
 

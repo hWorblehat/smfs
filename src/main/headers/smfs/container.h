@@ -51,13 +51,8 @@ namespace smfs {
 		typename M, typename C,
 		typename std::enable_if_t<!details::has_at<C,M>::value>
 	>
-	collection<M>* wrap_collection(std::shared_ptr<C> &&toWrap) {
-		return new smfs::details::linked_wrapper<C,M>(std::forward<std::shared_ptr<C>>(toWrap));
-	}
-
-	template<typename M, typename C>
-	collection<M>* wrap_collection(C* toWrap) {
-		return wrap_collection<M,C>(std::shared_ptr<C>(toWrap));
+	collection<M>* wrap_collection(std::shared_ptr<C> &toWrap) {
+		return new smfs::details::linked_wrapper<C,M>(toWrap);
 	}
 
 }

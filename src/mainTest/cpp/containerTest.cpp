@@ -20,7 +20,7 @@ using namespace std;
 
 TEST(collection_wrapper, can_be_constructed_from_shared_ptr_vector) {
 	shared_ptr<vector<string>> vec = make_shared<vector<string>>();
-	collection<string> *col = wrap_collection<string>(vec);
+	collection<string> *col = wrap_collection<string, vector<string>>(vec);
 
 	ASSERT_TRUE((is_same<remove_reference<decltype(*col)>::type::value_type, string>::value))
 			<< "Collection member value type is not as expected.";
@@ -37,11 +37,11 @@ TEST(collection_wrapper, can_be_constructed_from_shared_ptr_vector) {
 	delete col;
 }
 
-TEST(collection_wrapper, can_be_constructed_from_ptr_list) {
-	collection<string> *col = wrap_collection<string>(new list<string>());
-	EXPECT_TRUE(col->empty());
-	delete col;
-}
+//TEST(collection_wrapper, can_be_constructed_from_ptr_list) {
+//	collection<string> *col = wrap_collection<string, list<string>>(new list<string>());
+//	EXPECT_TRUE(col->empty());
+//	delete col;
+//}
 
 // Should not compile
 //TEST(collection_wrapper, cannot_be_constructed_from_int) {
