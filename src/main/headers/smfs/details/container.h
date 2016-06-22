@@ -18,7 +18,7 @@ namespace details {
 
 template<typename C, typename M>
 class collection_wrapper_base : public smfs::collection<M> {
-	using typename collection<M>::size_type;
+	using size_type = typename collection<M>::size_type;
 
 protected:
 	std::shared_ptr<C> const delegate;
@@ -44,14 +44,12 @@ public:
 
 template<typename C, typename M>
 class contiguous_wrapper : public collection_wrapper_base<C,M> {
-	using typename collection<M>::size_type;
-	using typename collection<M>::value_type;
-	//using collection_wrapper_base<C,M>::delegate;
+	typedef typename collection<M>::size_type size_type;
+	typedef typename collection<M>::value_type value_type;
 
 public:
 
-	using collection_wrapper_base<C,M>::collection_wrapper_base;
-	//contiguous_wrapper(std::shared_ptr<C> const &delegate) : collection_wrapper_base(delegate) {}
+	contiguous_wrapper(std::shared_ptr<C> const &delegate) : collection_wrapper_base<C,M>(delegate) {}
 
 	value_type & at(size_type index) override {
 		return this->delegate->at(index);
@@ -69,10 +67,10 @@ class linked_wrapper : collection_wrapper_base<C,M> {
 
 public:
 
-	linked_wrapper(std::shared_ptr<C> const delegate) : collection_wrapper_base(delegate) {}
+	linked_wrapper(std::shared_ptr<C> const delegate) : collection_wrapper_base<C,M>(delegate) {}
 
 #define IT_TO_INDEX(FN_BEGIN, FN_END) \
-	for(auto it=FN_BEGIN(delegate); it!=FN_END(delegate); ++it) {\
+	for(auto it=FN_BEGIN(this->delegate); it!=FN_END(this->delegate); ++it) {\
 		if(index--=0) return *it;\
 	}\
 	throw std::out_of_range("Index '" + index + "' out of range.")
@@ -88,14 +86,12 @@ public:
 
 template<typename C, typename M>
 class has_at {
-	template<typename C, typename M> static auto test(C container, M member)
-			-> decltype(container.at(0)!=member, std::true_type) {}
-
-	template<typename C, typename M> static std::false_type test(...) {}
+	static constexpr auto test(C* container, M* member) -> decltype(container->at(0)!=*member, std::true_type()) { return std::true_type(); }
+	static constexpr std::false_type test(...) { return std::false_type(); }
 
 public:
 
-	static bool const value = test(0,0);
+	static bool const value = test(0,0)();
 };
 
 
