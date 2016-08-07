@@ -9,6 +9,8 @@
 #define SMFS_DETAILS_CONTAINER_H_
 
 #include <stdexcept>
+#include <string>
+#include <utility>
 
 namespace smfs {
 
@@ -25,8 +27,8 @@ protected:
 
 public:
 
-	collection_wrapper_base(C* delegate) : delegate(delegate) {}
-	collection_wrapper_base(std::shared_ptr<C> const &delegate) : delegate(delegate) {}
+	collection_wrapper_base(std::shared_ptr<C> const &&delegate)
+			: delegate(std::forward<std::shared_ptr<C>>(delegate)) {}
 
 	size_type size() const override  {
 		return delegate->size();
@@ -40,6 +42,8 @@ public:
 		return delegate->max_size();
 	}
 
+	virtual ~collection_wrapper_base(){}
+
 };
 
 template<typename C, typename M>
@@ -49,7 +53,8 @@ class contiguous_wrapper : public collection_wrapper_base<C,M> {
 
 public:
 
-	contiguous_wrapper(std::shared_ptr<C> const &delegate) : collection_wrapper_base<C,M>(delegate) {}
+	contiguous_wrapper(std::shared_ptr<C> const &&delegate)
+			: collection_wrapper_base<C,M>(std::forward<std::shared_ptr<C>>(delegate)) {}
 
 	value_type & at(size_type index) override {
 		return this->delegate->at(index);
@@ -61,19 +66,20 @@ public:
 };
 
 template<typename C, typename M>
-class linked_wrapper : collection_wrapper_base<C,M> {
+class linked_wrapper : public collection_wrapper_base<C,M> {
 	using typename collection<M>::size_type;
 	using typename collection<M>::value_type;
 
 public:
 
-	linked_wrapper(std::shared_ptr<C> const delegate) : collection_wrapper_base<C,M>(delegate) {}
+	linked_wrapper(std::shared_ptr<C> const delegate)
+			: collection_wrapper_base<C,M>(std::forward<std::shared_ptr<C>>(delegate)) {}
 
 #define IT_TO_INDEX(FN_BEGIN, FN_END) \
-	for(auto it=FN_BEGIN(this->delegate); it!=FN_END(this->delegate); ++it) {\
-		if(index--=0) return *it;\
+	for(auto it=FN_BEGIN(*(this->delegate)); it!=FN_END(*(this->delegate)); ++it) {\
+		if(index--==0) return *it;\
 	}\
-	throw std::out_of_range("Index '" + index + "' out of range.")
+	throw std::out_of_range(std::string() + "Index '" + std::to_string(index) + "' out of range.")
 
 	value_type & at(size_type index) override {
 		IT_TO_INDEX(std::begin, std::end);
@@ -85,14 +91,13 @@ public:
 };
 
 template<typename C, typename M>
-class has_at {
-	static constexpr auto test(C* container, M* member) -> decltype(container->at(0)!=*member, std::true_type()) { return std::true_type(); }
-	static constexpr std::false_type test(...) { return std::false_type(); }
+constexpr auto has_at_test(int) -> decltype(std::declval<C>().at(0)!=std::declval<M>(), true) { return true; }
 
-public:
+template<typename C, typename M>
+constexpr bool has_at_test(...) { return false; }
 
-	static bool const value = test(0,0)();
-};
+template<typename C, typename M>
+constexpr bool has_at() { return has_at_test<C,M>(0,0); }
 
 
 

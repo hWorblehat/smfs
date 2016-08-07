@@ -27,6 +27,7 @@ String[] pkgLibs(List<String> pkgs){
 
 model {
 	components {
+		
 		main(NativeExecutableSpec) {
 			def requiredPackages = ['fuse']
 			def cFlags = pkgCFlags(requiredPackages)
@@ -40,6 +41,20 @@ model {
 				}
 			}
 			
+		}
+		
+		fusepp(NativeLibrarySpec) {
+			def requiredPackages = ['fuse']
+			def cFlags = pkgCFlags(requiredPackages)
+			def linkLibs = pkgLibs(requiredPackages)
+			
+			binaries.withType(NativeBinarySpec) {
+				if(toolChain in Gcc) {
+					cppCompiler.args cFlags
+					cCompiler.args   cFlags
+					linker.args      linkLibs
+				}
+			}
 		}
 	}
 	
