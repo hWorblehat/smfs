@@ -10,8 +10,9 @@
 
 #include <stdexcept>
 #include <cerrno>
+#include <cstring>
 
-namespace fuse {
+namespace fusepp {
 
 /**
  * Thrown when a fuse operation fails.

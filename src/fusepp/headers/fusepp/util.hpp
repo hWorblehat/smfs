@@ -10,7 +10,7 @@
 
 #include <fusepp/common.hpp>
 
-namespace fuse {
+namespace fusepp {
 
 /**
  * @brief Checks whether the given return value indicates an error.

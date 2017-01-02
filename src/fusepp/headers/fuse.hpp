@@ -11,6 +11,7 @@
 // Std includes
 #include <string>
 #include <cstddef> // for size_t
+#include <memory>
 
 // POSIX includes
 #include <sys/types.h> // for off_t
@@ -20,7 +21,7 @@
 #include <fusepp/common.hpp>
 #endif
 
-namespace fuse {
+namespace fusepp {
 
 /**
  * The type used to represent path arguments to the fuse operations,
@@ -31,7 +32,7 @@ typedef std::string const path_t;
 /**
  * The type used to represent the names of a file's extended attributes.
  */
-typedef std::string const & xattr_name_t;
+typedef std::string const xattr_name_t;
 
 /**
  * Represents a handle to an open file within a fuse filesystem.
@@ -285,7 +286,7 @@ public:
 	 * @param flags Creation flags.
 	 * @throws fuse_error if an error occurs.
 	 */
-	XATTR_FN(void setxattr(xattr_name_t name, char const * value, size_t size,
+	XATTR_FN(void setxattr(xattr_name_t &name, char const * value, size_t size,
 			int flags))
 
 	/**
@@ -299,7 +300,7 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	XATTR_FN(int getxattr(xattr_name_t name, char * buf, size_t size))
+	XATTR_FN(int getxattr(xattr_name_t &name, char * buf, size_t size))
 
 	/**
 	 * @brief List the extended attributes associated with this node.
@@ -322,7 +323,7 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	XATTR_FN(void removexattr(xattr_name_t name))
+	XATTR_FN(void removexattr(xattr_name_t &name))
 
 #undef XATTR_FN
 
@@ -340,9 +341,11 @@ public:
 
 	virtual ~mount() {}
 
-	virtual node* get_node(path_t rel_path) = 0;
+	virtual std::shared_ptr<node> get_node(path_t rel_path) = 0;
 
 };
+
+int main(int argc, char *argv[], mount *mount);
 
 }
 

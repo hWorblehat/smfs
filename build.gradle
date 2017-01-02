@@ -27,41 +27,22 @@ String[] pkgLibs(List<String> pkgs){
 
 model {
 	components {
-		
-		main(NativeExecutableSpec) {
-			def requiredPackages = ['fuse']
-			def cFlags = pkgCFlags(requiredPackages)
-			def linkLibs = pkgLibs(requiredPackages)
-			
-			binaries.withType(NativeBinarySpec) {
-				if(toolChain in Gcc) {
-					cppCompiler.args cFlags
-					cCompiler.args   cFlags
-					linker.args      linkLibs
-				}
-			}
-			
-		}
-		
-		fusepp(NativeLibrarySpec) {
-			def requiredPackages = ['fuse']
-			def cFlags = pkgCFlags(requiredPackages)
-			def linkLibs = pkgLibs(requiredPackages)
-			
-			binaries.withType(NativeBinarySpec) {
-				if(toolChain in Gcc) {
-					cppCompiler.args cFlags
-					cCompiler.args   cFlags
-					linker.args      linkLibs
-				}
-			}
-		}
+		fusepp(NativeLibrarySpec)
 	}
 	
 	binaries {
+		def requiredPackages = ['fuse']
+		def cFlags = pkgCFlags(requiredPackages)
+		def linkLibs = pkgLibs(requiredPackages)
+		
 		withType(NativeBinarySpec) {
+			cppCompiler.define '_FILE_OFFSET_BITS', '64'
+			cCompiler.define '_FILE_OFFSET_BITS', '64'
 			if(toolChain in Gcc) {
 				cppCompiler.args '-std=c++14'
+				cppCompiler.args cFlags
+				cCompiler.args   cFlags
+				linker.args      linkLibs
 			}
 		}
 	}

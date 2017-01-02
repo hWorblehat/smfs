@@ -6,3 +6,4 @@
 /googletest/.project
 /googletest/.settings/
 /Debug/
+/**/*.pyc
