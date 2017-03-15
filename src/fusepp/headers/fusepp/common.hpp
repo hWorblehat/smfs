@@ -22,13 +22,13 @@ struct fuse_error : std::runtime_error {
 	/**
 	 * The error code that caused this error to be raised.
 	 */
-	int const error;
+	unsigned int const error;
 
 	/**
 	 * Constructor for fuse_error.
 	 * @param error The error code that caused this error to be raised.
 	 */
-	fuse_error(int error) : std::runtime_error(strerror(error)), error(error) {}
+	fuse_error(unsigned int error) : std::runtime_error(strerror(error)), error(error) {}
 
 	/**
 	 * Creates a new fuse_error using the current value of errno as its error.
@@ -44,6 +44,6 @@ struct fuse_error : std::runtime_error {
 
 };
 
-} //namespace fuse
+} //namespace fusepp
 
 #endif /* FUSEPP_COMMON_HPP_ */

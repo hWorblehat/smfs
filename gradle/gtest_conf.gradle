@@ -1,8 +1,8 @@
 ext {
 	gTestLinkerArgs = ['-pthread', '-v']
 	gTestCompilerArgs = gTestLinkerArgs + [
-		'-isystem', new File(rootDir, "googletest/include").path,
-		'-isystem', new File(rootDir, "googlemock/include").path,
+		'-isystem', new File(rootDir, "googletest/googletest/include").path,
+		'-isystem', new File(rootDir, "googletest/googlemock/include").path,
 	]
 }
 

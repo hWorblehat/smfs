@@ -5,27 +5,81 @@
  *      Author: rowan
  */
 
-// The FUSE API has been changed a number of times.  So, our code
-// needs to define the version of the API that we assume.  As of this
-// writing, the most current API version is 26
-#define FUSE_USE_VERSION 26
-#include <fuse.h>
-
 #include "fuse.hpp"
 #include "fusepp/internal/impl.hpp"
 
+#include <tuple>
+#include <type_traits>
+
 namespace fusepp {
+
+#define NOT_IMP(sig) \
+sig { \
+	throw fuse_error(ENOSYS); \
+}
+
+template<unsigned I, typename... Args> struct Arguments;
+
+template<typename Sig> struct Function;
+
+template<typename Class, typename Ret, typename... Args>
+struct Function<Ret (Class::*)(Args...)> {
+	using Return = Ret;
+
+	using Arguments = std::tuple<Args...>;
+
+	template<std::size_t I>
+	using Argument = typename std::tuple_element<I, Arguments>::type;
+};
+
+#define FUNCTION(func) Function<decltype(&func)>
+
+#define NIN(func, ...) NOT_IMP(FUNCTION(func)::Return func(__VA_ARGS__))
+
+#define ARGS0(func)
+#define ARGS1(func) FUNCTION(func)::Argument<0>
+#define ARGS2(func) ARGS1(func), FUNCTION(func)::Argument<1>
+#define ARGS3(func) ARGS2(func), FUNCTION(func)::Argument<2>
+#define ARGS4(func) ARGS3(func), FUNCTION(func)::Argument<3>
+#define ARGS5(func) ARGS4(func), FUNCTION(func)::Argument<4>
+#define ARGS6(func) ARGS5(func), FUNCTION(func)::Argument<5>
+#define ARGS7(func) ARGS6(func), FUNCTION(func)::Argument<6>
+
+#define NI(N, func) NIN(func, ARGS##N(func))
+
+NI(1, NodeHandle1::fsync)
+NI(4, NodeHandle1::ioctl)
+
+NI(2, FileHandle1::read)
+NI(2, FileHandle1::write)
+NI(0, FileHandle1::flush)
+NI(2, FileHandle1::lock)
+
+NI(1, DirHandle1::readdir)
+
+NI(1, Node1::getattr)
+NI(1, Node1::readlink)
+NI(1, Node1::mkfifo)
+NI(2, Node1::mknod)
+NI(1, Node1::mkdir)
+NI(0, Node1::unlink)
+NI(0, Node1::rmdir)
+NI(1, Node1::symlink)
+NI(1, Node1::rename)
+NI(1, Node1::link)
+NI(1, Node1::chmod)
+NI(2, Node1::chown)
 
 /**
  * @return The pointer to a @ref mount object held in the current fuse context.
  */
-inline mount* get_mount_real() {
-	return (mount *) fuse_get_context()->private_data;
+static Mount1* get_mount_real() {
+	return (Mount1 *) fuse_get_context()->private_data;
 }
 
-int main(int argc, char *argv[], mount *mount) {
+int main(int argc, char *argv[], Mount1 *mount) {
 	struct fuse_operations operations;
-	internal::with_mount<&fusepp::get_mount_real>::bind(&operations);
+	internal::with_mount1<&fusepp::get_mount_real>::bind(&operations);
 	return fuse_main(argc, argv, &operations, mount);
 }
 

@@ -2,8 +2,8 @@ apply plugin: 'cpp'
 
 apply from: new File(rootDir, 'gradle/gtest_conf.gradle')
 
-File gtestDir = projectDir
-File gmockDir = new File(rootDir, 'googlemock')
+File gtestDir = new File(projectDir, 'googletest')
+File gmockDir = new File(projectDir, 'googlemock')
 
 model {
 	components {

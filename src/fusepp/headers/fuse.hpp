@@ -13,15 +13,21 @@
 #include <cstddef> // for size_t
 #include <memory>
 
-// POSIX includes
-#include <sys/types.h> // for off_t
-#include <sys/stat.h>
+extern "C" {
+	// POSIX includes
+	#include <sys/types.h> // for off_t
+	#include <sys/stat.h>
+	#include <sys/statvfs.h>
+	#include <fcntl.h>
+	#include <dirent.h>
+}
 
-#ifndef HAVE_SYS_XATTR_H
-#include <fusepp/common.hpp>
-#endif
+#include "fusepp/common.hpp"
+#include "fusepp/Buffer.h"
 
 namespace fusepp {
+
+#define NOTIMP { throw fuse_error(ENOTSUP); }
 
 /**
  * The type used to represent path arguments to the fuse operations,
@@ -29,10 +35,49 @@ namespace fusepp {
  */
 typedef std::string const path_t;
 
-/**
- * The type used to represent the names of a file's extended attributes.
- */
-typedef std::string const xattr_name_t;
+struct NodeHandle1 {
+
+	/**
+	 * Destructor for FileHandle.
+	 *
+	 * Extending classes should ensure that any underlying file handles are
+	 * closed (released) when the destructor is called.
+	 */
+	virtual ~NodeHandle1() {}
+
+	/**
+	 * @brief Get file attributes of this node.
+	 *
+	 * Similar to stat().  The 'st_dev' and 'st_blksize' fields are
+	 * ignored.	 The 'st_ino' field is ignored except if the 'use_ino'
+	 * mount option is given.
+	 *
+	 * @param statbuf The structure to store the attributes in.
+	 * @throws fuse_error if an error occurs.
+	 */
+	virtual void getattr(struct stat *statbuf) = 0;
+
+	/**
+	 * Synchronises the file contents with the underlying device.
+	 * @param datasync true iff only the user data should be synchronised, not
+	 *                 the metadata.
+	 * @throws fuse_error if an error occurs.
+	 */
+	virtual void fsync(bool datasync);
+
+	/**
+	 * @brief Performs an `ioctl` operation.
+	 *
+	 * @param cmd The ioctl command.
+	 * @param arg The literal (verbatim) value of the final ioctl argument.
+	 * @param flags Fuse flags for ioctl
+	 * @param data A (copy of the) data buffer containing input/output data pointed to the third argument
+	 *             passed to ioctl, if it was a pointer.
+	 * @throws fuse_error if an error occurs
+	 */
+	virtual void ioctl(int cmd, void * arg, unsigned int flags, void * data);
+
+};
 
 /**
  * Represents a handle to an open file within a fuse filesystem.
@@ -40,39 +85,35 @@ typedef std::string const xattr_name_t;
  * Extending classes should ensure that any underlying file handles are closed
  * when the object is destroyed.
  */
-class file_handle {
-public:
+struct FileHandle1 : NodeHandle1 {
 
 	/**
-	 * Destructor for file_handle.
+	 * Destructor for FileHandle.
 	 *
 	 * Extending classes should ensure that any underlying file handles are
-	 * closed when the destructor is called.
-	 *
-	 * @throws fuse_error if an error occurs during closing.
+	 * closed (released) when the destructor is called.
 	 */
-	virtual ~file_handle() {}
+	virtual ~FileHandle1() noexcept {}
 
 	/**
-	 * Read data from this file.
-	 * @param buf The buffer in which to copy the read data. Must be at least
-	 *            nbytes in size.
-	 * @param nbytes The number of bytes to read.
+	 * Read data from this file. The returned @ref Buffer should contain the data to read,
+	 * with its position set to the index of the first byte to read. The caller will not
+	 * advance the position of the buffer by the number of bytes read.
+	 * @param nbytes The number of bytes requested.
 	 * @param offset The offset within the file to read from.
-	 * @return The number of bytes actually read.
+	 * @return A shared pointer to a @ref Buffer containing the read data.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual int read(char * buf, size_t nbytes, off_t offset) = 0;
+	virtual std::shared_ptr<Buffer> read(size_t nbytes, off_t offset);
 
 	/**
 	 * Write data to this file.
-	 * @param data The data to write. Must be at least nbytes in size.
-	 * @param nbytes The number of bytes to write.
+	 * @param buffer A @ref Buffer containing the data to write.
 	 * @param offset The offset within the file to write to.
 	 * @return The number of bytes actually written.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual int write(char const * data, size_t nbytes, off_t offset) = 0;
+	virtual int write(Buffer& buffer, off_t offset);
 
 	/**
 	 * Possibly flush cached data
@@ -98,23 +139,26 @@ public:
 	 *
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void flush() = 0;
+	virtual void flush();
 
-	/**
-	 * Synchronises the file contents with the underlying device.
-	 * @param datasync true iff only the user data should be synchronised, not
-	 *                 the metadata.
-	 * @throws fuse_error if an error occurs.
-	 */
-	virtual void fsync(bool datasync) = 0;
+	virtual void lock(int cmd, struct flock * flock);
 
+	virtual void truncate(off_t newLength) = 0;
+
+};
+
+struct DirHandle1 : NodeHandle1 {
+
+	virtual ~DirHandle1() {}
+
+	virtual struct dirent * readdir(struct dirent * entry);
 };
 
 /**
  * Represents a single filesystem node (file/directory/symlink/etc) in a fuse
  * filesystem.
  */
-class node {
+class Node1 {
 public:
 
 	/**
@@ -128,14 +172,14 @@ protected:
 	 * Constructor for node.
 	 * @param rel_path The path, relative to the mount point, of this node.
 	 */
-	node(path_t &rel_path) : rel_path(rel_path) {}
+	Node1(path_t &rel_path) : rel_path(rel_path) {}
 
 public:
 
 	/**
 	 * Destructor for node.
 	 */
-	virtual ~node() {}
+	virtual ~Node1() {}
 
 	/**
 	 * @brief Get file attributes of this node.
@@ -147,39 +191,25 @@ public:
 	 * @param statbuf The structure to store the attributes in.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void getattr(struct stat *statbuf) = 0;
+	virtual void getattr(stat& statbuf);
 
 	/**
 	 * @brief Determines the target of a symbolic link at this node.
 	 *
-	 * The given link buffer should be filled with a null terminated string. The
-	 * buffer size argument includes the space for the terminating
-	 * null character.	If the linkname is too long to fit in the
-	 * buffer, it should be truncated.	The return value should be 0
-	 * for success.
-	 *
-	 * @param link The buffer in which to store the link target.
-	 * @param size The size of the buffer.
+	 * @param size The maximum number of characters that will be conveyed
+	 *             to the caller. If a longer path than this is returned,
+	 *             it will be truncated.
+	 * @return The target of the symbolic link at this node.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void readlink(char *link, size_t size) = 0;
-
-	/**
-	 * @brief Create a new file at this node.
-	 *
-	 * This will be called for the creation of all regular files.
-	 *
-	 * @param mode The mode of the file to create.
-	 * @throws fuse_error if an error occurs.
-	 */
-	virtual void create(mode_t mode) = 0;
+	virtual path_t readlink(size_t size);
 
 	/**
 	 * @brief Create a fifo (named pipe) at this node.
 	 * @param mode The mode of the fifo to create.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void mkfifo(mode_t mode) = 0;
+	virtual void mkfifo(mode_t mode);
 
 	/**
 	 * @brief Create a block or character device at this node.
@@ -188,7 +218,7 @@ public:
 	 * @param dev The device type to create, if creating a device file.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void mknod(mode_t mode, dev_t dev) = 0;
+	virtual void mknod(mode_t mode, dev_t dev);
 
 	/**
 	 * @brief Create a directory at this node.
@@ -198,47 +228,47 @@ public:
 	 *            To obtain the correct directory type bits use  mode|S_IFDIR.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void mkdir(mode_t mode) = 0;
+	virtual void mkdir(mode_t mode);
 
 	/**
 	 * @brief Remove a file at this node.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void unlink() = 0;
+	virtual void unlink();
 
 	/**
 	 * @brief Remove a directory at this node.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void rmdir() = 0;
+	virtual void rmdir();
 
 	/**
 	 * Create a symbolic link at this node to the given target.
 	 * @param target The full path of the target the symlink should point to.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void symlink(path_t target) = 0;
+	virtual void symlink(path_t target);
 
 	/**
 	 * Rename this node.
 	 * @param new_name The new name to give the node.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void rename(path_t new_name) = 0;
+	virtual void rename(path_t new_name);
 
 	/**
 	 * Create a hard link at this node to the given target.
 	 * @param target The full path of the target the link should point to.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void link(path_t target) = 0;
+	virtual void link(path_t target);
 
 	/**
 	 * Change the permission bits of this node.
 	 * @param mode The mode (permission bits) to use.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void chmod(mode_t mode) = 0;
+	virtual void chmod(mode_t mode);
 
 	/**
 	 * Change the owner of this node.
@@ -246,24 +276,20 @@ public:
 	 * @param gid The GID of the new owner.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void chown(uid_t uid, gid_t gid) = 0;
-
-	/**
-	 * Truncate the file at this node.
-	 * @param new_length The length (in bytes) to truncate the file to.
-	 * @throws fuse_error if an error occurs.
-	 */
-	virtual void truncate(off_t new_length) = 0;
+	virtual void chown(uid_t uid, gid_t gid);
 
 	/**
 	 * Opens a file at this node for the operations indicated by the given
 	 * flags.
 	 * @param flags Open flags.
-	 * @return A pointer to @file_handle object that can be used to perform
+	 * @return A pointer to a @ref FileHandle object that can be used to perform
 	 *         read/write operations.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual file_handle* open(int flags) = 0;
+	virtual FileHandle1* open(int flags) = 0;
+
+
+	virtual FileHandle1* createAndOpen(mode_t mode, int flags) = 0;
 
 	/**
 	 * Gets file system statistics for the underlying filesystem on which this
@@ -271,13 +297,7 @@ public:
 	 * @param statbuf The structure to store the statistics in.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void statvfs(struct statvfs * statbuf) = 0;
-
-#ifdef HAVE_SYS_XATTR_H
-#define XATTR_FN(sig) virtual sig = 0;
-#else
-#define XATTR_FN(sig) sig { throw fuse_error(ENOTSUP); }
-#endif
+	virtual void statfs(struct statvfs * statbuf) = 0;
 
 	/**
 	 * @brief Set an extended attribute for this node.
@@ -286,8 +306,7 @@ public:
 	 * @param flags Creation flags.
 	 * @throws fuse_error if an error occurs.
 	 */
-	XATTR_FN(void setxattr(xattr_name_t &name, char const * value, size_t size,
-			int flags))
+	virtual void setxattr(char const * name, char const * value, size_t size, int flags) {}//NOTIMP
 
 	/**
 	 * @brief Get an extended attribute for this node.
@@ -300,7 +319,7 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	XATTR_FN(int getxattr(xattr_name_t &name, char * buf, size_t size))
+	virtual int getxattr(char const * name, char * buf, size_t size) {}//NOTIMP
 
 	/**
 	 * @brief List the extended attributes associated with this node.
@@ -315,7 +334,7 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	XATTR_FN(int listxattr(char * buf, size_t size))
+	virtual int listxattr(char * buf, size_t size) {}//NOTIMP
 
 	/**
 	 * @brief Removes the specified extended attribute from this node.
@@ -323,29 +342,62 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	XATTR_FN(void removexattr(xattr_name_t &name))
+	virtual void removexattr(char const * name) {}//NOTIMP
 
-#undef XATTR_FN
+	virtual void truncate(off_t newLength) = 0;
+
+	/**
+	 * @brief Opens an existing directory at this node.
+	 *
+	 * @param flags The file-open flags to use.
+	 * @return A pointer to a @ref DirHandle object that can be used to read the
+	 *         directory's contents.
+	 * @throws fuse_error if an error occurs
+	 */
+	virtual DirHandle1* opendir(int flags) = 0;
+
+	/**
+	 * Tests if this node can be accessed in the given mode by the caller.
+	 *
+	 * @param mode The mode with which access is required.
+	 * @throws fuse_error if an error occurs or if access would not be allowed.
+	 */
+	virtual void access(int mode) = 0;
+
+	/**
+	 * @brief Changes the node's access and modification times with nanosecond precision.
+	 *
+	 * @param tv An array of 2 `timespec` objects specifying first the last-accessed time,
+	 *           and second the last-modified time.
+	 * @throws fuse_error if an error occurs.
+	 */
+	virtual void utimens(struct timespec const tv[2]) = 0;
 
 };
 
-class mount {
-public:
+enum ImplementedOps {
+	xattr = (1<<1),
+	fgetattr = (1<<2),
+	ftruncate = (1<<3)
+};
 
-	bool const has_xattr =
-#ifdef HAVE_SYS_XATTR_H
-	true;
-#else
-	false;
-#endif
+struct Mount1 {
 
-	virtual ~mount() {}
+	virtual ~Mount1() {}
 
-	virtual std::shared_ptr<node> get_node(path_t rel_path) = 0;
+	virtual std::shared_ptr<Node1> get_node(path_t rel_path) = 0;
 
 };
 
-int main(int argc, char *argv[], mount *mount);
+int main(int argc, char *argv[], Mount1 *mount);
+
+
+using Mount = Mount1;
+using NodeHandle = NodeHandle1;
+using FileHandle = FileHandle1;
+using DirHandle = DirHandle1;
+using Node = Node1;
+
 
 }
 

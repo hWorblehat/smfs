@@ -9,23 +9,21 @@
 #define MOUNT_FIXTURE_H_
 
 #include "fuse.hpp"
-#include <iostream>
 
 namespace fusepp {
 namespace testing {
 
-static thread_local mount * testMount;
+static thread_local Mount * testMount;
 
-mount * get_test_mount() {
+Mount * get_test_mount() {
 	return testMount;
 }
 
-void set_test_mount(mount * mount) {
+void set_test_mount(Mount * mount) {
 	testMount = mount;
 }
 
 void unset_test_mount() {
-	std::cerr << "Setting testMount to null";
 	testMount = nullptr;
 }
 
