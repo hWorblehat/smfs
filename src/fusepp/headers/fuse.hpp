@@ -24,6 +24,8 @@ extern "C" {
 
 #include "fusepp/common.hpp"
 #include "fusepp/Buffer.h"
+#include "fusepp/DirEntry.h"
+#include "fusepp/Timestamp.h"
 
 namespace fusepp {
 
@@ -33,7 +35,7 @@ namespace fusepp {
  * The type used to represent path arguments to the fuse operations,
  * always given relative to the mount point.
  */
-typedef std::string const path_t;
+using path_t = std::string;
 
 struct NodeHandle1 {
 
@@ -55,7 +57,7 @@ struct NodeHandle1 {
 	 * @param statbuf The structure to store the attributes in.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void getattr(struct stat *statbuf) = 0;
+	virtual void getattr(struct stat& statbuf) = 0;
 
 	/**
 	 * Synchronises the file contents with the underlying device.
@@ -113,7 +115,7 @@ struct FileHandle1 : NodeHandle1 {
 	 * @return The number of bytes actually written.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual int write(Buffer& buffer, off_t offset);
+	virtual size_t write(Buffer& buffer, off_t offset);
 
 	/**
 	 * Possibly flush cached data
@@ -141,7 +143,7 @@ struct FileHandle1 : NodeHandle1 {
 	 */
 	virtual void flush();
 
-	virtual void lock(int cmd, struct flock * flock);
+	virtual void lock(int cmd, struct flock& flock);
 
 	virtual void truncate(off_t newLength) = 0;
 
@@ -151,7 +153,7 @@ struct DirHandle1 : NodeHandle1 {
 
 	virtual ~DirHandle1() {}
 
-	virtual struct dirent * readdir(struct dirent * entry);
+	virtual std::shared_ptr<DirEntryIterator> readdir();
 };
 
 /**
@@ -164,7 +166,7 @@ public:
 	/**
 	 * The path, relative to the mount point, of this node.
 	 */
-	path_t rel_path;
+	path_t const rel_path;
 
 protected:
 
@@ -286,10 +288,10 @@ public:
 	 *         read/write operations.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual FileHandle1* open(int flags) = 0;
+	virtual std::unique_ptr<FileHandle1> open(int flags);
 
 
-	virtual FileHandle1* createAndOpen(mode_t mode, int flags) = 0;
+	virtual std::unique_ptr<FileHandle1> createAndOpen(mode_t mode, int flags);
 
 	/**
 	 * Gets file system statistics for the underlying filesystem on which this
@@ -297,7 +299,7 @@ public:
 	 * @param statbuf The structure to store the statistics in.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void statfs(struct statvfs * statbuf) = 0;
+	virtual void statfs(struct statvfs& statbuf);
 
 	/**
 	 * @brief Set an extended attribute for this node.
@@ -306,7 +308,14 @@ public:
 	 * @param flags Creation flags.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void setxattr(char const * name, char const * value, size_t size, int flags) {}//NOTIMP
+	virtual void setxattr(std::string const name, DataBuffer const & value, int flags);
+
+	/**
+	 * @brief Get the size of an extended attribute's value.
+	 * @param name The name of the attribute to get the size of.
+	 * @return The number of bytes required to store the attribute's value.
+	 */
+	virtual size_t xattrSize(std::string const name);
 
 	/**
 	 * @brief Get an extended attribute for this node.
@@ -319,7 +328,9 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	virtual int getxattr(char const * name, char * buf, size_t size) {}//NOTIMP
+	virtual size_t getxattr(std::string const name, DataBuffer& buffer);
+
+	virtual size_t xattrListSize();
 
 	/**
 	 * @brief List the extended attributes associated with this node.
@@ -334,7 +345,7 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	virtual int listxattr(char * buf, size_t size) {}//NOTIMP
+	virtual size_t listxattr(DataBuffer& buffer);
 
 	/**
 	 * @brief Removes the specified extended attribute from this node.
@@ -342,9 +353,9 @@ public:
 	 * @throws fuse_error if an error occurs or the size is greater than zero
 	 *                    but too small.
 	 */
-	virtual void removexattr(char const * name) {}//NOTIMP
+	virtual void removexattr(std::string const name);
 
-	virtual void truncate(off_t newLength) = 0;
+	virtual void truncate(off_t newLength);
 
 	/**
 	 * @brief Opens an existing directory at this node.
@@ -354,7 +365,7 @@ public:
 	 *         directory's contents.
 	 * @throws fuse_error if an error occurs
 	 */
-	virtual DirHandle1* opendir(int flags) = 0;
+	virtual std::unique_ptr<DirHandle1> opendir(int flags);
 
 	/**
 	 * Tests if this node can be accessed in the given mode by the caller.
@@ -362,7 +373,7 @@ public:
 	 * @param mode The mode with which access is required.
 	 * @throws fuse_error if an error occurs or if access would not be allowed.
 	 */
-	virtual void access(int mode) = 0;
+	virtual void access(int mode);
 
 	/**
 	 * @brief Changes the node's access and modification times with nanosecond precision.
@@ -371,14 +382,8 @@ public:
 	 *           and second the last-modified time.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void utimens(struct timespec const tv[2]) = 0;
+	virtual void utime(Timestamp& timestamp);
 
-};
-
-enum ImplementedOps {
-	xattr = (1<<1),
-	fgetattr = (1<<2),
-	ftruncate = (1<<3)
 };
 
 struct Mount1 {

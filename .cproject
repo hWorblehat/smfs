@@ -114,6 +114,8 @@
 						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="src/fuseppTest/headers"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src/main/headers"/>
 						<entry flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src/mainTest/cpp"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="src/uulib/headers"/>
+						<entry flags="VALUE_WORKSPACE_PATH" kind="sourcePath" name="src/uulibTest/cpp"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
@@ -152,4 +154,5 @@
 			<path value=""/>
 		</doc-comment-owner>
 	</storageModule>
+	<storageModule moduleId="org.eclipse.cdt.make.core.buildtargets"/>
 </cproject>

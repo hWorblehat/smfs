@@ -27,6 +27,7 @@ String[] pkgLibs(List<String> pkgs){
 
 model {
 	components {
+		uulib(NativeLibrarySpec)
 		fusepp(NativeLibrarySpec)
 	}
 	

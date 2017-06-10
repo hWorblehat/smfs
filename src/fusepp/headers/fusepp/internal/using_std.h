@@ -19,5 +19,6 @@ using std::make_shared;
 
 using std::move;
 using std::forward;
+using std::swap;
 
 #endif /* FUSEPP_USING_STD_H_ */

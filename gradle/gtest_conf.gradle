@@ -3,6 +3,7 @@ ext {
 	gTestCompilerArgs = gTestLinkerArgs + [
 		'-isystem', new File(rootDir, "googletest/googletest/include").path,
 		'-isystem', new File(rootDir, "googletest/googlemock/include").path,
+		'-ggdb',
 	]
 }
 

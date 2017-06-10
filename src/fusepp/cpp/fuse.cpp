@@ -55,7 +55,7 @@ NI(2, FileHandle1::write)
 NI(0, FileHandle1::flush)
 NI(2, FileHandle1::lock)
 
-NI(1, DirHandle1::readdir)
+NI(0, DirHandle1::readdir)
 
 NI(1, Node1::getattr)
 NI(1, Node1::readlink)
@@ -69,6 +69,23 @@ NI(1, Node1::rename)
 NI(1, Node1::link)
 NI(1, Node1::chmod)
 NI(2, Node1::chown)
+NI(1, Node1::open)
+NI(1, Node1::statfs)
+NI(3, Node1::setxattr)
+NI(1, Node1::xattrSize)
+NI(2, Node1::getxattr)
+NI(0, Node1::xattrListSize)
+NI(1, Node1::listxattr)
+NI(1, Node1::removexattr)
+NI(1, Node1::truncate)
+NI(1, Node1::opendir)
+NI(1, Node1::access)
+NI(1, Node1::utime)
+
+std::unique_ptr<FileHandle1> Node1::createAndOpen(mode_t mode, int flags) {
+	mknod(mode, 0);
+	return open(flags);
+}
 
 /**
  * @return The pointer to a @ref mount object held in the current fuse context.

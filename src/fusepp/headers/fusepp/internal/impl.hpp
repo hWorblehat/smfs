@@ -38,6 +38,19 @@ inline path_t convert_path(char const *path) {
 	return path_t(path);
 }
 
+template<typename T>
+	using Handle = std::enable_if_t<std::is_base_of<NodeHandle1, T>::value, T>;
+
+template<typename T>
+static inline Handle<T>* get_handle(fuse_file_info* fi) {
+	return reinterpret_cast<T*>(fi->fh);
+}
+
+template<typename T>
+static inline void set_handle(fuse_file_info* fi, unique_ptr<Handle<T>> handle) {
+	fi->fh = reinterpret_cast<uintptr_t>(handle.release());
+}
+
 template<getMount1 get_mount>
 struct with_mount1 {
 
@@ -49,14 +62,6 @@ struct with_mount1 {
 	 */
 	static inline shared_ptr<Node1> get_node(char const *path) {
 		return get_mount()->get_node(convert_path(path));
-	}
-
-	template<typename T>
-	using Handle = std::enable_if_t<std::is_base_of<NodeHandle1, T>::value, T>;
-
-	template<typename T>
-	static inline Handle<T>* get_handle(fuse_file_info* fi) {
-		return reinterpret_cast<T*>(fi->fh);
 	}
 
 	/**
@@ -266,14 +271,11 @@ struct with_mount1 {
 	 * @param fi Provides open flags and receives the resultant handle.
 	 */
 	static void open_real(char const * path, struct fuse_file_info * fi) {
-		FileHandle1 *fh = get_node(path)->open(fi->flags);
-		//TODO fi->direct_io, fi->keep_cache, fi->nonseekable
-		fi->fh = (uintptr_t) fh;
+		set_handle<FileHandle1>(fi, get_node(path)->open(fi->flags));
 	}
 
 	static void create_real(char const * path, mode_t mode, struct fuse_file_info * fi) {
-		FileHandle1 *fh = get_node(path)->createAndOpen(mode, fi->flags);
-		fi->fh = (uintptr_t) fh;
+		set_handle<FileHandle1>(fi, get_node(path)->createAndOpen(mode, fi->flags));
 	}
 
 	/**
@@ -295,12 +297,9 @@ struct with_mount1 {
 	static void readdir_real(char const * path, void * buf, fuse_fill_dir_t filler, off_t offset,
 			struct fuse_file_info *fi) {
 		DirHandle1* dh = get_handle<DirHandle1>(fi);
-		struct stat statbuf;
-		struct dirent buffer;
-		for(struct dirent * entry = dh->readdir(&buffer); entry!=nullptr; entry = dh->readdir(&buffer)) {
-			statbuf.st_ino = entry->d_ino;
-			statbuf.st_mode = DTTOIF(entry->d_type);
-			if(filler(buf, entry->d_name, &statbuf, 0) != 0) {
+		for(shared_ptr<DirEntryIterator> it = dh->readdir(); it; it = it->next()) {
+			DirEntry const & entry = it->get();
+			if(filler(buf, entry.getName(), &entry.getAttr(), 0)) {
 				throw fuse_error(ENOMEM);
 			}
 		}
@@ -325,7 +324,7 @@ struct with_mount1 {
 	}
 
 	static int write_buf_real(char const * path, struct fuse_bufvec *buf, off_t offset, struct fuse_file_info *fi) {
-		BufferImpl buffer(buf, false);
+		DynamicBuffer buffer(unique_ptr<::fuse_bufvec>(buf, [](){}));
 		return get_handle<FileHandle1>(fi)->write(buffer, offset);
 	}
 
@@ -337,12 +336,21 @@ struct with_mount1 {
 		get_node(path)->readlink(size).copy(link, size, 0);
 	}
 
+	static int getxattr_real(char const * path, char const * name, char * value, size_t size) {
+		if(size==0) {
+			return get_node(path)->xattrSize(std::string(name));
+		} else {
+			AutomaticDataBuffer buffer(value, size);
+			return get_node(path)->getxattr(std::string(name), buffer);
+		}
+	}
+
 #define FORWARD(op, type) operations->op = P_CALL_AND_CATCH(&type::op)
 #define DEPRECATED(op) operations->op = NULL
 #define FORWARD_WRAP(op, wrapper) operations->op = P_CALL_AND_CATCH(&with_mount1<get_mount>::wrapper)
 #define FORWARD_FH(op, index) operations->op = P_FH_CALL_AND_CATCH(&FileHandle1::op, index)
 
-	static void bind(fuse_operations *operations, ImplementedOps implementedOps) {
+	static void bind(fuse_operations *operations) {
 		FORWARD_WRAP(getattr, getattr_real);
 		FORWARD_WRAP(readlink, readlink_real);
 		DEPRECATED(getdir);
