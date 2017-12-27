@@ -12,6 +12,7 @@
 #include <string>
 #include <cstddef> // for size_t
 #include <memory>
+#include <optional>
 
 extern "C" {
 	// POSIX includes
@@ -29,6 +30,11 @@ extern "C" {
 
 namespace fusepp {
 
+struct Ino {
+	uint64_t ino;
+	uint64_t generation;
+};
+
 #define NOTIMP { throw fuse_error(ENOTSUP); }
 
 /**
@@ -40,10 +46,10 @@ using path_t = std::string;
 struct NodeHandle1 {
 
 	/**
-	 * Destructor for FileHandle.
+	 * Destructor for NodeHandle.
 	 *
-	 * Extending classes should ensure that any underlying file handles are
-	 * closed (released) when the destructor is called.
+	 * Extending classes should ensure that any underlying resource handles
+	 * are closed (released) when the destructor is called.
 	 */
 	virtual ~NodeHandle1() {}
 
@@ -73,8 +79,9 @@ struct NodeHandle1 {
 	 * @param cmd The ioctl command.
 	 * @param arg The literal (verbatim) value of the final ioctl argument.
 	 * @param flags Fuse flags for ioctl
-	 * @param data A (copy of the) data buffer containing input/output data pointed to the third argument
-	 *             passed to ioctl, if it was a pointer.
+	 * @param data A (copy of the) data buffer containing input/output data
+	 *             pointed to by the third argument passed to ioctl, if it
+	 *             was a pointer.
 	 * @throws fuse_error if an error occurs
 	 */
 	virtual void ioctl(int cmd, void * arg, unsigned int flags, void * data);
@@ -153,7 +160,11 @@ struct DirHandle1 : NodeHandle1 {
 
 	virtual ~DirHandle1() {}
 
-	virtual std::shared_ptr<DirEntryIterator> readdir();
+	virtual AnyDirEntry readdir();
+
+	virtual void seekdir(std::size_t offset);
+
+	virtual std::size_t telldir();
 };
 
 /**
@@ -183,6 +194,11 @@ public:
 	 */
 	virtual ~Node1() {}
 
+	virtual std::tuple<std::shared_ptr<Node1>, double> lookup(std::string name);
+
+	virtual std::optional<Ino> ino();
+
+	//TODO doc
 	/**
 	 * @brief Get file attributes of this node.
 	 *
@@ -191,9 +207,11 @@ public:
 	 * mount option is given.
 	 *
 	 * @param statbuf The structure to store the attributes in.
+	 * @return The timeout, in seconds, after which the attributes should be
+	 *         considered stale.
 	 * @throws fuse_error if an error occurs.
 	 */
-	virtual void getattr(stat& statbuf);
+	virtual double getattr(stat& statbuf);
 
 	/**
 	 * @brief Determines the target of a symbolic link at this node.

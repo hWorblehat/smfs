@@ -10,27 +10,24 @@
 
 #include <string>
 #include <cinttypes>
-#include <functional>
+#include <memory>
+#include <optional>
 
-#include "../../../uulib/headers/uulib/Capsule.h"
+#include <uulib/Capsule.h>
 
-extern "C" {
-	#include <sys/stat.h>
-}
+#include "fusepp/internal/fusepp_forward.h"
 
 namespace fusepp {
 
 struct DirEntry {
 	virtual ~DirEntry(){}
 	virtual std::string getName() const = 0;
-	virtual struct stat const & getAttr() const = 0;
-};
-
-struct DirEntryIterator {
-	virtual ~DirEntryIterator(){}
-
-	virtual DirEntry const & get() const = 0;
-	virtual std::shared_ptr<DirEntryIterator> next() = 0;
+	virtual std::size_t getNextOffset() const = 0;
+	virtual std::optional<uint64_t> getIndexNumber() const {
+		return std::optional<uint64_t>;
+	}
+	virtual unsigned char getType() const = 0;
+	virtual std::shared_ptr<Node1> lookupNode() = 0;
 };
 
 using AnyDirEntry = uulib::Capsule<DirEntry, 256>;

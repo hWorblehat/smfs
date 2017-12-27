@@ -27,6 +27,7 @@ class FileBuffer;
 class Buffer {
 	friend class DataBuffer;
 	friend class FileBuffer;
+	friend class AbstractBuffer;
 
 	Buffer();
 

@@ -294,8 +294,8 @@ struct with_mount1 {
 		fi->fh = (uintptr_t) dh;
 	}
 
-	static void readdir_real(char const * path, void * buf, fuse_fill_dir_t filler, off_t offset,
-			struct fuse_file_info *fi) {
+	static void readdir_real(char const * path, void * buf,
+			fuse_fill_dir_t filler, off_t offset, struct fuse_file_info *fi){
 		DirHandle1* dh = get_handle<DirHandle1>(fi);
 		for(shared_ptr<DirEntryIterator> it = dh->readdir(); it; it = it->next()) {
 			DirEntry const & entry = it->get();
